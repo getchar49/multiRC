@@ -30,7 +30,7 @@ def get_one_sample_features(one):
                             +  tokenizer.encode(text_b,add_special_tokens=False,max_length=128,truncation=True) \
                             +  [tokenizer.sep_token_id]
         inputs["token_type_ids"] = [0] * len(inputs["input_ids"])
-        inputs["input_ids"] += tokenizer.encode(text_a, max_length=tokenizer.max_len - len(inputs["input_ids"])-1,truncation=True,add_special_tokens=False) +  [tokenizer.sep_token_id]
+        inputs["input_ids"] += tokenizer.encode(text_a, max_length=tokenizer.model_max_length - len(inputs["input_ids"])-1,truncation=True,add_special_tokens=False) +  [tokenizer.sep_token_id]
         inputs["attention_mask"] = [1] * len(inputs["input_ids"])
         inputs["token_type_ids"] += [1] * (len(inputs["input_ids"]) - len(inputs["token_type_ids"]))
 #        inputs = tokenizer(
