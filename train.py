@@ -166,6 +166,9 @@ def train(epoch):
     train_data = get_shuffle_data()
     total = len(train_data)
     step = 0
+    total_loss = 0
+    losses = []
+    avg_losses = []
     for i in iter_printer(total, epoch):
         seq = [x[0] for x in train_data[i:i + batch_size]]
         label = [x[1] for x in train_data[i:i + batch_size]]
@@ -209,7 +212,7 @@ def train(epoch):
         step += 1
         total_loss += loss
         avg_loss = total_loss/step
-        print("loss: {}, avg loss: {}".format(loss,avg_loss))
+        print("\nloss: {}, avg loss: {}".format(loss,avg_loss),end='')
         losses.append(loss)
         avg_losses.append(avg_loss)
     record['loss'].append(losses)
@@ -268,7 +271,8 @@ def evaluation(epoch):
         logging.info('layer {} eval acc is {}'.format(k,rights[k]))
     return right
 
-best_acc = evaluation(-1)
+#best_acc = evaluation(-1)
+best_acc = 0.24
 for epo in range(args.epoch):
     train(epo)
     if local_rank == -1 or local_rank == 0:
