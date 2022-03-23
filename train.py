@@ -24,6 +24,8 @@ class_num = {
     "ag_news":4,
     "dbpedia":14
     }
+    
+record = {'loss':[],'avg_loss':[],'val_acc':[]}
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -205,6 +207,13 @@ def train(epoch):
             if args.warmup_proportion is not None and args.warmup_proportion!=0.0:
                 scheduler.step()
         step += 1
+        total_loss += loss
+        avg_loss = total_loss/step
+        print("loss: {}, avg loss: {}".format(loss,avg_loss))
+        losses.append(loss)
+        avg_losses.append(avg_loss)
+    record['loss'].append(losses)
+    record['avg_loss'].append(avg_losses)
 
 def evaluation(epoch):
     model.eval()
@@ -264,6 +273,8 @@ for epo in range(args.epoch):
     train(epo)
     if local_rank == -1 or local_rank == 0:
         accuracy = evaluation(epo)
+        record['val_acc'].append(accuracy)
+        torch.save(record,os.path.join(args.output_dir,'log2.pt'))
         if accuracy > best_acc:
             best_acc = accuracy
             logging.info('---- new best_acc = {}'.format(best_acc))
