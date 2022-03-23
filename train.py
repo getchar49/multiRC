@@ -213,8 +213,12 @@ def train(epoch):
         total_loss += loss
         avg_loss = total_loss/step
         print("\nloss: {}, avg loss: {}".format(loss,avg_loss),end='')
-        losses.append(loss)
-        avg_losses.append(avg_loss)
+        if (step%10==0):
+            losses.append(loss)
+            avg_losses.append(avg_loss)
+        if (step%200==0):
+            state_dict = model.state_dict()
+            torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
     record['loss'].append(losses)
     record['avg_loss'].append(avg_losses)
 
@@ -273,6 +277,7 @@ def evaluation(epoch):
 
 #best_acc = evaluation(-1)
 best_acc = 0.24
+model.load_state_dict(torch.load(os.path.join(args.output_dir,'tmp_model.th')))
 for epo in range(args.epoch):
     train(epo)
     if local_rank == -1 or local_rank == 0:
