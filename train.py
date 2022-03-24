@@ -25,7 +25,7 @@ class_num = {
     "dbpedia":14
     }
     
-record = {'loss':[],'avg_loss':[],'val_acc':[]}
+record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':[]}
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -94,7 +94,9 @@ data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace
 valid_data = load_file(os.path.join(data_path,'valid.{}.obj'.format(model_type.replace('/', '.'))))
 valid_data = sorted(valid_data, key=lambda x: len(x[0]))
 batch_size = args.batch_size
+total_size = (len(data)+1)//batch_size
 tokenizer = AutoTokenizer.from_pretrained(model_type)
+total_loss = 100
 
 if dataset_type == 'ReCO':
     from model import Bert4ReCO as bertmodel
@@ -161,15 +163,16 @@ def iter_printer(total, epoch):
     else:
         return tqdm(range(0, total, batch_size), desc='epoch {}'.format(epoch))
 
-def train(epoch):
+def train(epoch,offset = 0):
+    global total_loss
+    #print(total_loss)
     model.train()
     train_data = get_shuffle_data()
     total = len(train_data)
-    step = 0
-    total_loss = 0
+    step = offset
     losses = []
     avg_losses = []
-    for i in iter_printer(total, epoch):
+    for i in range(0,total,batch_size):
         seq = [x[0] for x in train_data[i:i + batch_size]]
         label = [x[1] for x in train_data[i:i + batch_size]]
         
@@ -212,10 +215,11 @@ def train(epoch):
         step += 1
         total_loss += loss
         avg_loss = total_loss/step
-        print("\nloss: {}, avg loss: {}".format(loss,avg_loss),end='')
-        if (step%10==0):
+        if (step%50==0):
             losses.append(loss)
             avg_losses.append(avg_loss)
+            print('Step {}/{}'.format(step,total_size))
+            print("loss: {}, avg loss: {}".format(loss,avg_loss))
         if (step%200==0):
             state_dict = model.state_dict()
             torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
@@ -277,12 +281,19 @@ def evaluation(epoch):
 
 #best_acc = evaluation(-1)
 best_acc = 0.24
-model.load_state_dict(torch.load(os.path.join(args.output_dir,'tmp_model.th')))
+c = 2000
+num = len(data)//c+1
+#model.load_state_dict(torch.load(os.path.join(args.output_dir,'tmp_model.th')))
 for epo in range(args.epoch):
-    train(epo)
+    total_loss = 0
+    for i in range(num):
+        del data
+        data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))[c*i:c*(i+1)]
+        train(epo,c*i//batch_size)
     if local_rank == -1 or local_rank == 0:
         accuracy = evaluation(epo)
         record['val_acc'].append(accuracy)
+        record['optim'].append(optimizer)
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
         if accuracy > best_acc:
             best_acc = accuracy
