@@ -25,7 +25,7 @@ class_num = {
     "dbpedia":14
     }
     
-record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':[]}
+record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':[],'sche':[]}
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -220,9 +220,6 @@ def train(epoch,offset = 0):
             avg_losses.append(avg_loss)
             print('Step {}/{}'.format(step,total_size))
             print("loss: {}, avg loss: {}".format(loss,avg_loss))
-        if (step%200==0):
-            state_dict = model.state_dict()
-            torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
     record['loss'].append(losses)
     record['avg_loss'].append(avg_losses)
 
@@ -279,9 +276,14 @@ def evaluation(epoch):
         logging.info('layer {} eval acc is {}'.format(k,rights[k]))
     return right
 
+def load_saved_state():
+    record = torch.load(os.path.join(args.output_dir,'log2.pt'))
+    scheduler = record['sche'][-1]
+    optimizer = record['optim'][-1]
+
 #best_acc = evaluation(-1)
 best_acc = 0.24
-c = 2000
+c = 10000
 num = len(data)//c+1
 #model.load_state_dict(torch.load(os.path.join(args.output_dir,'tmp_model.th')))
 for epo in range(args.epoch):
@@ -290,10 +292,13 @@ for epo in range(args.epoch):
         del data
         data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))[c*i:c*(i+1)]
         train(epo,c*i//batch_size)
+        state_dict = model.state_dict()
+        torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
     if local_rank == -1 or local_rank == 0:
         accuracy = evaluation(epo)
         record['val_acc'].append(accuracy)
         record['optim'].append(optimizer)
+        record['sche'].append(scheduler)
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
         if accuracy > best_acc:
             best_acc = accuracy
