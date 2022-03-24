@@ -141,8 +141,9 @@ def optim(n_layers,lr,model,alpha=5.,split_layers=12):
     for i,layer_param in enumerate(layer_params):
         m = alpha ** (split_layers-i//one_layer_block_num-1)
         params_list.append({'params':layer_param,'lr':lr/m})
-
+    print(params_list)
     optimizer2 = torch.optim.AdamW(params_list,
                                   weight_decay=0.01)
+    print(optimizer2)
     return optimizer2 
             
