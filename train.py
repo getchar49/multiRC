@@ -25,7 +25,7 @@ class_num = {
     "dbpedia":14
     }
     
-record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':[],'sche':[]}
+record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':[],'sche':[],'best_acc':0.24}
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -280,6 +280,7 @@ def load_saved_state():
     record = torch.load(os.path.join(args.output_dir,'log2.pt'))
     scheduler = record['sche'][-1]
     optimizer = record['optim'][-1]
+    best_acc = record['best_acc']
 
 #best_acc = evaluation(-1)
 best_acc = 0.24
@@ -302,6 +303,8 @@ for epo in range(args.epoch):
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
         if accuracy > best_acc:
             best_acc = accuracy
+            record['best_acc'] = best_acc
+            torch.save(record,os.path.join(args.output_dir,'log2.pt'))
             logging.info('---- new best_acc = {}'.format(best_acc))
             with open(os.path.join(args.output_dir,'checkpoint.{}.th'.format(model_type.replace('/', '.'))), 'wb') as f:
                 state_dict = model.module.state_dict() if args.fp16 else model.state_dict()
