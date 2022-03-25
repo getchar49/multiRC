@@ -25,7 +25,7 @@ class_num = {
     "dbpedia":14
     }
     
-record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':[],'sche':[],'best_acc':0.24}
+record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':None,'sche':None,'epoch':None,'total_loss':None,'best_acc':0.24,'step':None}
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -90,11 +90,15 @@ if local_rank in [-1, 0]:
 if local_rank >= 0:
     dist.barrier()  # wait for the first gpu to load data
 
-data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))
+data = None
+#data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))
 valid_data = load_file(os.path.join(data_path,'valid.{}.obj'.format(model_type.replace('/', '.'))))
 valid_data = sorted(valid_data, key=lambda x: len(x[0]))
 batch_size = args.batch_size
-total_size = (len(data)+1)//batch_size
+#62444
+#total_size = (len(data)+1)//batch_size
+#print("Total size: ",total_size)
+total_size = 31222
 tokenizer = AutoTokenizer.from_pretrained(model_type)
 total_loss = 100
 
@@ -115,7 +119,9 @@ optimizer = optim(layers,args.lr,model,args.alpha,split_layers=args.split_layer)
 
 # warm up
 if args.warmup_proportion is not None and args.warmup_proportion!=0.0:
-    total_steps = len(data) * args.epoch // (args.gradient_accumulation_steps * args.batch_size)
+    #total_steps = len(data) * args.epoch // (args.gradient_accumulation_steps * args.batch_size)
+    #print(total_steps)
+    total_steps = 39027
     scheduler = get_linear_schedule_with_warmup(optimizer,int(args.warmup_proportion*total_steps),total_steps)
 
 if args.fp16:
@@ -278,27 +284,46 @@ def evaluation(epoch):
 
 def load_saved_state():
     record = torch.load(os.path.join(args.output_dir,'log2.pt'))
-    scheduler = record['sche'][-1]
-    optimizer = record['optim'][-1]
+    scheduler.load_state_dict(record['sche'])
+    optimizer.load_state_dict(record['optim'])
     best_acc = record['best_acc']
+    state_dict = torch.load(os.path.join(args.output_dir,'tmp_model.th'))
+    model.load_state_dict(state_dict())
+    #cur_i = record['cur_i']
+    #cur_epo = record['cur_epo']
 
 #best_acc = evaluation(-1)
 best_acc = 0.24
-c = 1000
-num = len(data)//c+1
+c = 4000
+#num = len(data)//c+1
+num = 16
 #model.load_state_dict(torch.load(os.path.join(args.output_dir,'tmp_model.th')))
-for epo in range(args.epoch):
-    total_loss = 0
-    for i in range(num):
+print("Training...")
+#print(scheduler.state_dict())
+load_saved_state()
+cur_epo = 0
+cur_i = 5
+total_loss = 0.52*10000
+for epo in range(cur_epo,args.epoch):
+    for i in range(cur_i,num):
+      
         data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))[c*i:c*(i+1)]
         train(epo,c*i//batch_size)
         state_dict = model.state_dict()
         torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
+        record['optim'] = optimizer.state_dict()
+        record['sche'] = scheduler.state_dict()
+        record['cur_i'] = cur_i
+        record['cur_epo'] = cur_epo
+        #print(record)
+        torch.save(record,os.path.join(args.output_dir,'log2.pt'))
     if local_rank == -1 or local_rank == 0:
         accuracy = evaluation(epo)
         record['val_acc'].append(accuracy)
-        record['optim'].append(optimizer)
-        record['sche'].append(scheduler)
+        record['optim']=optimizer.state_dict()
+        record['sche']=scheduler.state_dict()
+        record['cur_i'] = cur_i
+        record['cur_epo'] = cur_epo
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
         if accuracy > best_acc:
             best_acc = accuracy
@@ -308,3 +333,5 @@ for epo in range(args.epoch):
             with open(os.path.join(args.output_dir,'checkpoint.{}.th'.format(model_type.replace('/', '.'))), 'wb') as f:
                 state_dict = model.module.state_dict() if args.fp16 else model.state_dict()
                 torch.save(state_dict, f)
+    cur_i = 0
+    total_loss = 0
