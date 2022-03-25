@@ -288,7 +288,7 @@ def load_saved_state():
     optimizer.load_state_dict(record['optim'])
     best_acc = record['best_acc']
     state_dict = torch.load(os.path.join(args.output_dir,'tmp_model.th'))
-    model.load_state_dict(state_dict())
+    model.load_state_dict(state_dict)
     #cur_i = record['cur_i']
     #cur_epo = record['cur_epo']
 
