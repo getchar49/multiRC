@@ -25,7 +25,7 @@ class_num = {
     "dbpedia":14
     }
     
-record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':None,'sche':None,'epoch':None,'total_loss':None,'best_acc':0.24,'step':None}
+record = {'loss':[],'avg_loss':[],'val_acc':[],'optim':None,'sche':None,'epoch':None,'total_loss':None,'best_acc':0.24}
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -172,6 +172,7 @@ def iter_printer(total, epoch):
 def train(epoch,offset = 0):
     global total_loss
     #print(total_loss)
+    #print(total_loss)
     model.train()
     train_data = get_shuffle_data()
     total = len(train_data)
@@ -219,12 +220,13 @@ def train(epoch,offset = 0):
             if args.warmup_proportion is not None and args.warmup_proportion!=0.0:
                 scheduler.step()
         step += 1
+        #print(loss)
         total_loss += loss
         avg_loss = total_loss/step
         if (step%50==0):
             losses.append(loss)
             avg_losses.append(avg_loss)
-            print('Step {}/{}'.format(step,total_size))
+            print('Epoch {}: Step {}/{}'.format(epoch,step,total_size))
             print("loss: {}, avg loss: {}".format(loss,avg_loss))
     record['loss'].append(losses)
     record['avg_loss'].append(avg_losses)
@@ -277,20 +279,27 @@ def evaluation(epoch):
             for k,prediction in enumerate(predictions):
                 all_predictions[k].extend(prediction)
     rights,right = evaluate(all_prediction,all_predictions,labels,"acc") 
-    logging.info('epoch {} eval acc is {}'.format(epoch, right))
+    print('epoch {} eval acc is {}'.format(epoch, right))
     for k in range(len(probs)):
-        logging.info('layer {} eval acc is {}'.format(k,rights[k]))
+        print('layer {} eval acc is {}'.format(k,rights[k]))
+    global record
+    record['val_acc'].append(rights[:3])
     return right
-
+cur_epo = 0
+cur_i = 0
 def load_saved_state():
+    global record
     record = torch.load(os.path.join(args.output_dir,'log2.pt'))
     scheduler.load_state_dict(record['sche'])
     optimizer.load_state_dict(record['optim'])
     best_acc = record['best_acc']
     state_dict = torch.load(os.path.join(args.output_dir,'tmp_model.th'))
     model.load_state_dict(state_dict)
-    #cur_i = record['cur_i']
-    #cur_epo = record['cur_epo']
+    global cur_i
+    global cur_epo
+    cur_i = record['cur_i']
+    cur_epo = record['cur_epo']
+    #print(cur_i,cur_epo)
 
 #best_acc = evaluation(-1)
 best_acc = 0.24
@@ -301,9 +310,13 @@ num = 16
 print("Training...")
 #print(scheduler.state_dict())
 load_saved_state()
-cur_epo = 0
-cur_i = 5
-total_loss = 0.52*10000
+print(cur_i,cur_epo)
+#cur_epo = 1
+#cur_i = 14
+#cur_i = record['cur_i']
+total_loss = record['total_loss']
+total_loss.requires_grad = False
+print(total_loss)
 for epo in range(cur_epo,args.epoch):
     for i in range(cur_i,num):
       
@@ -313,23 +326,26 @@ for epo in range(cur_epo,args.epoch):
         torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
         record['optim'] = optimizer.state_dict()
         record['sche'] = scheduler.state_dict()
-        record['cur_i'] = cur_i
-        record['cur_epo'] = cur_epo
+        record['cur_i'] = i+1
+        record['cur_epo'] = epo
+        record['total_loss'] = total_loss
         #print(record)
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
+    record['cur_i'] = 0
+    record['cur_epo'] = epo + 1
     if local_rank == -1 or local_rank == 0:
         accuracy = evaluation(epo)
-        record['val_acc'].append(accuracy)
+        #record['val_acc'].append(accuracy)
         record['optim']=optimizer.state_dict()
         record['sche']=scheduler.state_dict()
-        record['cur_i'] = cur_i
-        record['cur_epo'] = cur_epo
+        #record['cur_i'] = cur_i
+        #record['cur_epo'] = cur_epo
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
         if accuracy > best_acc:
             best_acc = accuracy
             record['best_acc'] = best_acc
             torch.save(record,os.path.join(args.output_dir,'log2.pt'))
-            logging.info('---- new best_acc = {}'.format(best_acc))
+            print('---- new best_acc = {}'.format(best_acc))
             with open(os.path.join(args.output_dir,'checkpoint.{}.th'.format(model_type.replace('/', '.'))), 'wb') as f:
                 state_dict = model.module.state_dict() if args.fp16 else model.state_dict()
                 torch.save(state_dict, f)
