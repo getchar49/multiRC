@@ -284,13 +284,12 @@ def load_saved_state():
 
 #best_acc = evaluation(-1)
 best_acc = 0.24
-c = 10000
+c = 1000
 num = len(data)//c+1
 #model.load_state_dict(torch.load(os.path.join(args.output_dir,'tmp_model.th')))
 for epo in range(args.epoch):
     total_loss = 0
     for i in range(num):
-        del data
         data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))[c*i:c*(i+1)]
         train(epo,c*i//batch_size)
         state_dict = model.state_dict()
