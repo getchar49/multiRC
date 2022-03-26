@@ -311,28 +311,28 @@ print("Training...")
 #print(scheduler.state_dict())
 load_saved_state()
 print(cur_i,cur_epo)
-#cur_epo = 1
+cur_epo = 5
 #cur_i = 14
 #cur_i = record['cur_i']
 total_loss = record['total_loss']
 total_loss.requires_grad = False
 print(total_loss)
-for epo in range(cur_epo,args.epoch):
+for epo in range(cur_epo-1,args.epoch):
     for i in range(cur_i,num):
       
         data = load_file(os.path.join(data_path,'train.{}.obj'.format(model_type.replace('/', '.'))))[c*i:c*(i+1)]
-        train(epo,c*i//batch_size)
+        train(epo+1,c*i//batch_size)
         state_dict = model.state_dict()
         torch.save(state_dict,os.path.join(args.output_dir,'tmp_model.th'))
         record['optim'] = optimizer.state_dict()
         record['sche'] = scheduler.state_dict()
         record['cur_i'] = i+1
-        record['cur_epo'] = epo
+        record['cur_epo'] = epo + 1
         record['total_loss'] = total_loss
         #print(record)
         torch.save(record,os.path.join(args.output_dir,'log2.pt'))
     record['cur_i'] = 0
-    record['cur_epo'] = epo + 1
+    record['cur_epo'] = epo + 2
     if local_rank == -1 or local_rank == 0:
         accuracy = evaluation(epo)
         #record['val_acc'].append(accuracy)
